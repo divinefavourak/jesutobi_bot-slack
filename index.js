@@ -53,6 +53,17 @@ app.command("/joke", async ({ ack, respond }) =>{
         await respond({ text: "Failed to fetch a joke." });
     }
 });
+
+app.command("/no", async ({ ack, respond}) => {
+    await ack();
+    try{
+        const response = await axios.get("https://naas.isalman.dev/no");
+        await respond({text: `${response.data.no}`}
+        );  } catch (err){
+            await respond({ text: "You just have to go with it man, I gat no excuses for this one." });
+        }
+}
+)
 (async () => {
     await app.start();
     console.log("Your bot is live");

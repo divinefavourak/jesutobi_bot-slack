@@ -55,8 +55,8 @@ app.command("/joke", async ({ ack, respond }) =>{
 });
 
 app.command("/no", async ({ ack, respond}) => {
+       bot_log("User ${command.user.id} is asking for an excuse..");
         await ack();
-        bot_log(`User ${command.user.id} is asking for an excuse..`);
     try{
         const response = await axios.get("https://naas.isalman.dev/no");
         await respond({text: `${response.data.no}`}

@@ -59,7 +59,7 @@ app.command("/no", async ({ ack, respond}) => {
         await ack();
     try{
         const response = await axios.get("https://naas.isalman.dev/no");
-        await respond({text: `${response.reason.no}`}
+        await respond({text: `${response.data.reason}`}
         );  } catch (err){
             await respond({ text: "You just have to go with it man, I gat no excuses for this one." });
         }

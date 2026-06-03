@@ -63,7 +63,7 @@ app.command("/no", async ({ ack, respond}) => {
             await respond({ text: "You just have to go with it man, I gat no excuses for this one." });
         }
 }
-)
+);
 (async () => {
     await app.start();
     console.log("Your bot is live");

@@ -20,7 +20,7 @@ app.command("/dsb-catfact", async({ ack, respond }) => {
     await ack();
     try {
         const response = await axios.get("https://catfact.ninja/fact");
-        await respond({ text: `Cat Fact: \n${response.data,fact}` });
+        await respond({ text: `Cat Fact: \n${response.data.fact}` });
     } catch(err){
         await respond({ text: "Failed to fetch a cat fact." });
     }
@@ -35,19 +35,19 @@ app.command("/dsb-ping", async ({ command, ack, respond}) => {
 app.command("/help", async ({ command, ack, respond }) => {
     await ack();
     await respond({
-        text: " Here are the available commands. \n /bomb - Get bombing tasks. \n /ping - Check bot latency. \n /help - Show this list of commands."
+        text: " Here are the available commands. \n /bomb - Get bombing tasks. \n /dsb-ping - Check bot latency. \n /help - Show this list of commands."
     });
 });
 app.command("/joke", async ({ ack, respond }) =>{
     await ack();
     try { 
-        const response = await = axios.get("https://official-joke-api.appspot.com/random_joke");
+        const response = await axios.get("https://official-joke-api.appspot.com/random_joke");
         await respond({ text: `${response.data.setup}
             ${response.data.punchline}` });
     } catch (err) {
         await respond({ text: "Failed to fetch a joke." });
     }
-})
+});
 (async () => {
     await app.start();
     console.log("Your bot is live");

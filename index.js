@@ -3,6 +3,9 @@ const axios = require ("axios");
 
 const { App } = require("@slack/bolt");
 
+const bot_log = console.log.bind(console, "Bot Log:");
+bot_log("Initializing your bot...");
+
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     appToken: process.env.SLACK_APP_TOKEN,
@@ -11,12 +14,14 @@ const app = new App({
 
 app.command("/bomb", async ({ command, ack, respond }) => {
     await ack();
+    bot_log(`Received /bomb command from user ${command.user_id}`);
     await respond({
         text: "Here are your bombing tasks: \n 1. Task A \n 2. Task B \n 3. Task C \n \n Oje bomb"
     });
 });
 
 app.command("/dsb-catfact", async({ ack, respond }) => {
+    bot_log("Received /dsb-catfact command");
     await ack();
     try {
         const response = await axios.get("https://catfact.ninja/fact");

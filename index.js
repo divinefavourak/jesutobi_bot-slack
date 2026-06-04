@@ -3,7 +3,7 @@ require("dotenv").config();
 const { App } = require("@slack/bolt");
 
 const app = new App({
-    token: prcess.env.SLACK_BOLT_TOKEN,
+    token: process.env.SLACK_BOLT_TOKEN,
     appToken: process.env.SLACK_APP_TOKEN,
     socketMode: true
 });

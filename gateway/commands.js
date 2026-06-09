@@ -36,10 +36,9 @@ module.exports = function registerCommands(app) {
         const result = await route({ type: "excuse" });
         await respond({ text: result});
     });
- app.command("/ask", async ({ command, ack, respond }) => {
+app.command("/ask", async ({ command, ack, respond }) => {
     await ack();
     const userMessage = command.text;
-    console.log("Asked ai question", userMessage);
 
     if (!userMessage) {
         await respond({
@@ -50,8 +49,18 @@ module.exports = function registerCommands(app) {
 
     const result = await route({
         type: "ai_message",
-        message: userMessage
+        message: userMessage,
+        workspaceId: command.team_id  // ← add this
     });
     await respond({ text: result });
+});
+
+app.command("/tasks", async ({ command, ack, respond }) => {
+    await ack();
+    const result = await route({
+        type: "list_tasks",
+        workspaceId: command.team_id
+    });
+    await respond ({ text: result });
 });
 };

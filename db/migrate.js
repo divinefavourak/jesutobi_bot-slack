@@ -37,7 +37,12 @@ async function migrate() {
             );
         `);
         console.log("✓ Memories table ready");
-
+        
+        await pool.query(`
+            ALTER TABLE memories
+            ADD COLUMN IF NOT EXISTS embedding FLOAT[];
+            `);
+        console.log("Embedding column ready");
         console.log("Migration complete");
         process.exit(0);
 

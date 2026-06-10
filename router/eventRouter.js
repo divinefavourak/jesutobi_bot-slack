@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { detectIntent, answerQuestion } = require("../engines/aiEngine");
 const { createTask, getTasks } = require("../engines/taskEngine");
+const { storeMemory, searchMemory } = require("../engines/memoryEngine");
 
 async function route(event) {
    //using if for the commands instead of switch for better readability and flexibility
@@ -35,11 +36,11 @@ async function route(event) {
             case "create_task":
                 return await handleCreateTask(result.entities, event.workspaceId);
             case "ask_question":
-                return await handleAskQuestion(result.entities);
+                return await handleAskQuestion(result.entities, event.workspaceId);
             case "create_workflow":
                 return handleCreateWorkflow(result.entities);
             case "store_memory":
-                return handleStoreMemory(result.entities);
+                return handleStoreMemory(result.entities, event.workspaceId);
             default:
                 return "I understood your message but I don't know how to handle that yet.";     
         }
@@ -61,7 +62,7 @@ async function route(event) {
     return "I don't know how to handle that yet.";
 }
 
-//stub handlers ------ for AI intents
+//stub handlers --- for AI intents
 async function handleCreateTask(entities, workspaceId) {
     const assignee = entities.assignee || null;
 
@@ -92,16 +93,30 @@ async function handleCreateTask(entities, workspaceId) {
     return `Got it. ${saved.length} task${saved.length > 1 ? "s" : ""} saved:\n${formatted}`;
 }
 
-async function handleAskQuestion(entities) {
-    const answer = await answerQuestion(entities.question);
+async function handleAskQuestion(entities, workspaceId) {
+    //first check memory for relevant context
+    const answer = await answerQuestion(entities.question, workspaceId);
+    if (memory){
+        //found a relevant memory -- use it as context
+        const answer = await answerQuestion(
+            `Context from our team's memory: "${memory.content}"\n\nQuestion: ${entities.question}\n\nAnswer using the context if relevant.`
+        );
+        return `${answer}\n\n_Based on saved memory_`;
+    }
+
     return answer;
 }
 
 function handleCreateWorkflow(entities) {
     return `Workflow noted:\nWhen *${entities.trigger}* in #${entities.channel}, I'll ${entities.action}.`;
 }
-function handleStoreMemory(entities) {
-    return `Memory stored about: ${entities.topic || "that topic"}.`;
+async function handleStoreMemory(entities, workspaceId) {
+    const content = entities.content || entities.topic; 
+    if (!content) {
+        return "What should I remember? Try `/ask remember we decided to use blue for the logo`"
+    }
+    const memory = await storeMemory(content, "general", workspaceId);
+    return `Got it. I'll remember that:\n_"${memory.content}"_`;
 }
 
 

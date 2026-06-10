@@ -1,6 +1,7 @@
 require("dotenv").config();
 //const OpenAI = require("openai");
 const Groq = require("groq-sdk");
+const axios = require("axios");
 
 // const apiKey = process.env.OPENROUTER_API_KEY;
 const apiKey = process.env.GROQ_API_KEY;
@@ -75,4 +76,24 @@ async function answerQuestion(question) {
     }
 }
 
-module.exports = { detectIntent, answerQuestion };
+async function  generateEmbeddings(text) {
+    try{
+        const response = await axios.post(
+            "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
+            { inputs: text },
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+        return response.data[0]; //array of 384 numbers
+    } catch(err){
+        console.error("Embedding error:", err.message)
+        return null;
+    }
+    
+}
+
+module.exports = { detectIntent, answerQuestion, generateEmbeddings };

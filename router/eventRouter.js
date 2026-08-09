@@ -64,30 +64,29 @@ async function route(event) {
    }
     if (event.type === "help") {
         return [
-            "Available commands:",
-            "/dping — check latency",
-            "/joke — random joke",
-            "/meow-fact — random cat fact",
-            "/no — a silly excuse",
-            "/ask [message] — natural-language: create tasks, ask questions, save memories, build workflows",
+            "Every command starts with `/sos-` so it can't clash with another app.",
+            "",
+            "*Natural language*",
+            "`/sos-ask [message]` — create tasks, ask questions, save memories, build automations",
             "",
             "*Tasks*",
-            "/tasks — list saved tasks",
-            "/done [id] — mark a task done",
-            "/reopen [id] — move a task back to pending",
+            "`/sos-tasks` — list saved tasks",
+            "`/sos-done [id]` — mark a task done",
+            "`/sos-reopen [id]` — move a task back to pending",
             "",
             "*Memory*",
-            "/memories — list everything I've remembered",
-            "/forget [id] — delete a memory",
+            "`/sos-memories` — list everything I've remembered",
+            "`/sos-forget [id]` — delete a memory",
             "",
-            "*Workflows*",
-            "/workflows — list saved workflow rules",
-            "/workflow disable [id] — pause a rule",
-            "/workflow enable [id] — resume a rule",
-            "/workflow delete [id] — remove a rule",
+            "*Automations*",
+            "`/sos-workflows` — list your rules",
+            "`/sos-workflows enable|disable|delete [id]` — manage a rule",
             "",
-            "You can also just @mention me in a channel instead of using /ask.",
-            "/help — this message"
+            "*For fun*",
+            "`/sos-joke` · `/sos-meow-fact` · `/sos-no` · `/sos-ping`",
+            "",
+            "You can also just @mention me in a channel instead of using `/sos-ask`.",
+            "`/sos-help` — this message"
         ].join("\n");
     }
     if (event.type === "excuse") {
@@ -98,17 +97,17 @@ async function route(event) {
     const workflows = await getWorkflows(event.workspaceId);
 
     if (workflows.length === 0) {
-        return "No workflows yet. Try `/ask when someone joins #design, send onboarding docs`";
+        return "No workflows yet. Try `/sos-ask when someone joins #design, send onboarding docs`";
     }
 
     // Print the real primary key, not the array position -- these ids are what
-    // /workflow disable|enable|delete take as an argument.
+    // /sos-workflows enable|disable|delete take as an argument.
     const formatted = workflows.map((w) =>
         `\`#${w.id}\` When *${w.trigger}* in #${w.channel || "any channel"}, ${w.action}` +
         `${w.payload ? ` ("${w.payload}")` : ""} — _${w.enabled ? "enabled" : "disabled"}_`
     ).join("\n");
 
-    return `Here are your workflows:\n${formatted}\n\n_Use \`/workflow disable <id>\` to pause one._`;
+    return `Here are your workflows:\n${formatted}\n\n_Use \`/sos-workflows disable <id>\` to pause one._`;
     }
 
     if (event.type === "workflow_admin") {
@@ -119,25 +118,25 @@ async function route(event) {
         const memories = await getMemories(event.workspaceId);
 
         if (memories.length === 0) {
-            return "I haven't remembered anything yet. Try `/ask remember that standup is at 9am`";
+            return "I haven't remembered anything yet. Try `/sos-ask remember that standup is at 9am`";
         }
 
         const formatted = memories.map((m) =>
             `\`#${m.id}\` ${m.content}`
         ).join("\n");
 
-        return `Here's what I remember:\n${formatted}\n\n_Use \`/forget <id>\` to remove one._`;
+        return `Here's what I remember:\n${formatted}\n\n_Use \`/sos-forget <id>\` to remove one._`;
     }
 
     if (event.type === "forget_memory") {
         if (!event.memoryId) {
-            return "Which memory? Use `/forget <id>` — run `/memories` to see the ids.";
+            return "Which memory? Use `/sos-forget <id>` — run `/sos-memories` to see the ids.";
         }
 
         const removed = await deleteMemory(event.memoryId, event.workspaceId);
 
         if (!removed) {
-            return `I couldn't find memory \`#${event.memoryId}\`. Run \`/memories\` to see the ids.`;
+            return `I couldn't find memory \`#${event.memoryId}\`. Run \`/sos-memories\` to see the ids.`;
         }
 
         return `Forgotten:\n_"${removed.content}"_`;
@@ -145,14 +144,14 @@ async function route(event) {
 
     if (event.type === "complete_task") {
         if (!event.taskId) {
-            return "Which task? Use `/done <id>` — run `/tasks` to see the ids.";
+            return "Which task? Use `/sos-done <id>` — run `/sos-tasks` to see the ids.";
         }
 
         const status = event.status || "done";
         const updated = await updateTaskStatus(event.taskId, status, event.workspaceId);
 
         if (!updated) {
-            return `I couldn't find task \`#${event.taskId}\`. Run \`/tasks\` to see the ids.`;
+            return `I couldn't find task \`#${event.taskId}\`. Run \`/sos-tasks\` to see the ids.`;
         }
 
         return status === "done"
@@ -195,16 +194,16 @@ async function route(event) {
         const tasks = await getTasks(event.workspaceId);
 
         if  (tasks.length === 0) {
-            return "No tasks yet. Try `/ask remind someone to do something`";
+            return "No tasks yet. Try `/sos-ask remind someone to do something`";
         }
 
-        // Real primary keys, not array positions -- /done takes these ids, and
+        // Real primary keys, not array positions -- /sos-done takes these ids, and
         // numbering by position would complete the wrong row.
         const formatted = tasks.map((t) =>
         `${t.status === "done" ? "✓" : "•"} \`#${t.id}\` *${t.title}* — ${t.assignee || "Unassigned"} — ${t.due_date || "No deadline"} — _${t.status}_`
     ).join("\n");
 
-        return `Here are your tasks:\n${formatted}\n\n_Use \`/done <id>\` when one is finished._`;
+        return `Here are your tasks:\n${formatted}\n\n_Use \`/sos-done <id>\` when one is finished._`;
     }
     return "I don't know how to handle that yet.";
 }
@@ -294,13 +293,13 @@ async function handleWorkflowAdmin(event) {
     const { op, workflowId, workspaceId } = event;
 
     if (!workflowId) {
-        return `Which workflow? Use \`/workflow ${op} <id>\` — run \`/workflows\` to see the ids.`;
+        return `Which workflow? Use \`/sos-workflows ${op} <id>\` — run \`/sos-workflows\` to see the ids.`;
     }
 
     if (op === "delete") {
         const removed = await deleteWorkflow(workflowId, workspaceId);
         if (!removed) {
-            return `I couldn't find workflow \`#${workflowId}\`. Run \`/workflows\` to see the ids.`;
+            return `I couldn't find workflow \`#${workflowId}\`. Run \`/sos-workflows\` to see the ids.`;
         }
         return `Deleted workflow \`#${removed.id}\` (was: *${removed.trigger}* in #${removed.channel}).`;
     }
@@ -309,7 +308,7 @@ async function handleWorkflowAdmin(event) {
     const updated = await setWorkflowEnabled(workflowId, enabled, workspaceId);
 
     if (!updated) {
-        return `I couldn't find workflow \`#${workflowId}\`. Run \`/workflows\` to see the ids.`;
+        return `I couldn't find workflow \`#${workflowId}\`. Run \`/sos-workflows\` to see the ids.`;
     }
 
     return enabled
@@ -351,7 +350,7 @@ async function handleCreateWorkflow(entities, workspaceId, originalMessage) {
     // Without a channel the rule can never match a real event, so say so now
     // instead of saving a rule that silently never fires.
     if (!normalized.channel) {
-        return "Which channel should that apply to? Try: `/ask when someone joins #design, send onboarding docs`";
+        return "Which channel should that apply to? Try: `/sos-ask when someone joins #design, send onboarding docs`";
     }
 
     const workflow = await createWorkflow(normalized, workspaceId);
@@ -402,7 +401,7 @@ async function handleStoreMemory(entities, workspaceId, originalMessage) {
     }
 
     if (!content) {
-        return "What should I remember? Try: `/ask remember that we decided to use blue for the logo`";
+        return "What should I remember? Try: `/sos-ask remember that we decided to use blue for the logo`";
     }
 
     const memory = await storeMemory(content, "general", workspaceId);

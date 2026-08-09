@@ -2,7 +2,8 @@ const { route } = require("../router/eventRouter");
 const { findMatchingWorkflows, ACTIONS } = require("../engines/workflowEngine");
 
 // Slash commands that take a row id all share this: pull the first integer out
-// of the command text so "/done 3", "/done #3" and "/done task 3" all work.
+// of the command text so "/sos-done 3", "/sos-done #3" and "/sos-done task 3"
+// all work.
 function parseId(text) {
     const match = String(text || "").match(/\d+/);
     return match ? Number(match[0]) : null;
@@ -73,48 +74,52 @@ module.exports = function registerCommands(app) {
         });
     }
 
-    app.command("/dping", async ({ command, ack, respond }) => {
-        console.log("Received /dsb-ping command:", command);
+    // Every command carries the /sos- prefix so it can't clash with another app
+    // installed in the same workspace. Slash command names are global to a
+    // workspace, not scoped per app, so generic names like /help or /done are
+    // first-come-first-served across every app a workspace has installed.
+    app.command("/sos-ping", async ({ command, ack, respond }) => {
+        console.log("Received /sos-ping command:", command);
         const start = Date.now();
         await ack();
         const latency = Date.now() - start;
         await respond({ text: `Pong! Latency: ${latency}ms` });
     });
 
-    app.command("/meow-fact", async ({ command, ack, respond }) => {
-        console.log("Received /dsb-catfact command:", command);
+    app.command("/sos-meow-fact", async ({ command, ack, respond }) => {
+        console.log("Received /sos-meow-fact command:", command);
         await ack();
         const result = await route({ type: "catfact" });
         await respond({ text: result });
     });
 
-    app.command("/joke", async ({ ack, respond }) => {
-        console.log("Received /joke command");
+    app.command("/sos-joke", async ({ ack, respond }) => {
+        console.log("Received /sos-joke command");
         await ack();
         const result = await route({ type: "joke" });
         await respond({ text: result });
     });
 
-    app.command("/help", async ({ ack, respond }) => {
+    app.command("/sos-help", async ({ ack, respond }) => {
         await ack();
         const result = await route({ type: "help" });
         await respond({ text: result });
     });
 
-    app.command("/no", async ({ ack, respond }) => {
+    app.command("/sos-no", async ({ ack, respond }) => {
         console.log("Triggered silly excuse");
         await ack();
         const result = await route({ type: "excuse" });
         await respond({ text: result });
     });
 
-    app.command("/ask", async ({ command, ack, respond }) => {
+    app.command("/sos-ask", async ({ command, ack, respond }) => {
         await ack();
         const userMessage = command.text;
 
         if (!userMessage) {
             await respond({
-                text: "Type something after /ask. Example: `/ask remind Divine to finish the UI by Friday`"
+                text: "Type something after `/sos-ask`. Example: `/sos-ask remind Divine to finish the UI by Friday`"
             });
             return;
         }
@@ -127,7 +132,7 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    app.command("/tasks", async ({ command, ack, respond }) => {
+    app.command("/sos-tasks", async ({ command, ack, respond }) => {
         await ack();
         const result = await route({
             type: "list_tasks",
@@ -136,16 +141,7 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    app.command("/workflows", async ({ command, ack, respond }) => {
-        await ack();
-        const result = await route({
-            type: "list_workflows",
-            workspaceId: command.team_id
-        });
-        await respond({ text: result });
-    });
-
-    app.command("/done", async ({ command, ack, respond }) => {
+    app.command("/sos-done", async ({ command, ack, respond }) => {
         await ack();
         const result = await route({
             type: "complete_task",
@@ -156,7 +152,7 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    app.command("/reopen", async ({ command, ack, respond }) => {
+    app.command("/sos-reopen", async ({ command, ack, respond }) => {
         await ack();
         const result = await route({
             type: "complete_task",
@@ -167,7 +163,7 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    app.command("/memories", async ({ command, ack, respond }) => {
+    app.command("/sos-memories", async ({ command, ack, respond }) => {
         await ack();
         const result = await route({
             type: "list_memories",
@@ -176,7 +172,7 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    app.command("/forget", async ({ command, ack, respond }) => {
+    app.command("/sos-forget", async ({ command, ack, respond }) => {
         await ack();
         const result = await route({
             type: "forget_memory",
@@ -186,15 +182,30 @@ module.exports = function registerCommands(app) {
         await respond({ text: result });
     });
 
-    // One command with a sub-verb: "/workflow disable 3".
-    app.command("/workflow", async ({ command, ack, respond }) => {
+    // Listing and managing live on one command. Keeping "/sos-workflow" and
+    // "/sos-workflows" as separate commands meant a single missing "s" silently
+    // ran the wrong one.
+    //   /sos-workflows                -> list
+    //   /sos-workflows disable 3      -> manage
+    app.command("/sos-workflows", async ({ command, ack, respond }) => {
         await ack();
 
-        const op = (String(command.text || "").trim().split(/\s+/)[0] || "").toLowerCase();
+        const text = String(command.text || "").trim();
+
+        if (!text) {
+            const result = await route({
+                type: "list_workflows",
+                workspaceId: command.team_id
+            });
+            await respond({ text: result });
+            return;
+        }
+
+        const op = (text.split(/\s+/)[0] || "").toLowerCase();
 
         if (!["enable", "disable", "delete"].includes(op)) {
             await respond({
-                text: "Usage: `/workflow enable|disable|delete <id>`\nRun `/workflows` to see the ids."
+                text: "Usage: `/sos-workflows` to list, or `/sos-workflows enable|disable|delete <id>` to manage one."
             });
             return;
         }
@@ -202,7 +213,7 @@ module.exports = function registerCommands(app) {
         const result = await route({
             type: "workflow_admin",
             op,
-            workflowId: parseId(command.text),
+            workflowId: parseId(text),
             workspaceId: command.team_id
         });
         await respond({ text: result });
@@ -234,7 +245,7 @@ module.exports = function registerCommands(app) {
             await client.chat.postMessage({
                 channel: event.channel,
                 thread_ts,
-                text: "Hey! Ask me something, e.g. `@SlackOS what did we decide about the logo?` — or run `/help`."
+                text: "Hey! Ask me something, e.g. `@SlackOS what did we decide about the logo?` — or run `/sos-help`."
             });
             return;
         }
@@ -252,7 +263,7 @@ module.exports = function registerCommands(app) {
             await client.chat.postMessage({
                 channel: event.channel,
                 thread_ts,
-                text: "Something went wrong handling that. Try `/help`."
+                text: "Something went wrong handling that. Try `/sos-help`."
             });
         }
     });

@@ -6,14 +6,18 @@ team memory, and automations that fire on live Slack events.
 No forms, no menus. You type what you mean.
 
 ```
-/ask remind Divine to finish the UI by Friday
+/sos-ask remind Divine to finish the UI by Friday
 → Got it. 1 task saved:
   1. Finish the UI — Divine — Friday
 
-/ask when someone joins #design, DM them the handbook
+/sos-ask when someone joins #design, DM them the handbook
 → Workflow saved as #4:
   When channel_member_join in #design, I'll DM them ("handbook").
 ```
+
+Every command is prefixed `/sos-`. Slash command names belong to the whole
+workspace rather than to one app, so `/help` or `/done` would collide with
+whatever else is already installed.
 
 ---
 
@@ -21,16 +25,17 @@ No forms, no menus. You type what you mean.
 
 **Tasks** — Describe work in plain English and SlackOS pulls out the assignee,
 the deadline and the task itself. It handles several tasks in one sentence.
-List them with `/tasks`, close them with `/done <id>`, reopen with `/reopen <id>`.
+List them with `/sos-tasks`, close them with `/sos-done <id>`, reopen with
+`/sos-reopen <id>`.
 
 **Memory** — Tell it what the team decided and it remembers. Ask later in normal
 language and it finds the relevant note and answers using that context.
-`/memories` shows everything stored, `/forget <id>` removes one.
+`/sos-memories` shows everything stored, `/sos-forget <id>` removes one.
 
 **Automations** — Describe a rule once and it runs itself. When someone joins a
 channel, SlackOS can post a public welcome, send a note only that person sees,
 or DM them the onboarding docs. Rules are matched against real Slack events in
-real time. Pause or remove them with `/workflow enable|disable|delete <id>`.
+real time. Pause or remove them with `/sos-workflows enable|disable|delete <id>`.
 
 **Mentions** — `@SlackOS what's our standup time?` works in any channel it's in,
 and it replies in a thread so channels stay readable.
@@ -39,18 +44,30 @@ and it replies in a thread so channels stay readable.
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `/ask <message>` | Natural language — creates tasks, answers questions, saves memories, builds workflows |
-| `/tasks` | List saved tasks with their ids |
-| `/done <id>` | Mark a task done |
-| `/reopen <id>` | Move a task back to pending |
-| `/memories` | List everything SlackOS remembers |
-| `/forget <id>` | Delete a memory |
-| `/workflows` | List saved automation rules |
-| `/workflow enable\|disable\|delete <id>` | Manage a rule |
-| `/help` | Show all commands |
-| `/joke`, `/meow-fact`, `/no`, `/dping` | Morale and latency |
+All twelve commands, with the description and usage hint to register for each
+one in the Slack dashboard.
+
+| # | Command | Description | Usage hint |
+|---|---|---|---|
+| 1 | `/sos-ask` | Talk to SlackOS in plain English | `[message]` |
+| 2 | `/sos-tasks` | List saved tasks with their ids | |
+| 3 | `/sos-done` | Mark a task done | `[task id]` |
+| 4 | `/sos-reopen` | Move a task back to pending | `[task id]` |
+| 5 | `/sos-memories` | List everything SlackOS remembers | |
+| 6 | `/sos-forget` | Delete a memory | `[memory id]` |
+| 7 | `/sos-workflows` | List automation rules, or manage one | `[enable\|disable\|delete] [id]` |
+| 8 | `/sos-help` | Show every command | |
+| 9 | `/sos-ping` | Check the bot is alive and how fast | |
+| 10 | `/sos-joke` | A random joke | |
+| 11 | `/sos-meow-fact` | A random cat fact | |
+| 12 | `/sos-no` | A silly excuse | |
+
+`/sos-workflows` does double duty: bare it lists your rules, and with a verb it
+manages one (`/sos-workflows disable 3`). Keeping it as a single command avoids
+a near-identical `/sos-workflow` sitting next to `/sos-workflows`, where one
+missing letter silently runs the wrong thing.
+
+You can also skip commands and `@SlackOS` the bot in any channel it belongs to.
 
 ---
 

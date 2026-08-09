@@ -199,7 +199,7 @@ code{font-family:var(--mono)}
       <div class="composer">
         <form class="inputwrap" id="form" autocomplete="off">
           <label for="input" class="sr-only" style="position:absolute;left:-9999px">Message #bot-spam</label>
-          <input id="input" placeholder="Message #bot-spam — try /help" autocomplete="off">
+          <input id="input" placeholder="Message #bot-spam — try /sos-help" autocomplete="off">
           <button class="send" type="submit" id="send">Send</button>
         </form>
         <div class="chips" id="chips"></div>
@@ -243,8 +243,8 @@ Here's everything you need for your first week.
 
 *Start here*
 • Say hi in #bot-spam and tell us what you're working on
-• Run \`/help\` to see everything I can do
-• Ask me anything with \`/ask\` — I answer from the team's own notes
+• Run \`/sos-help\` to see everything I can do
+• Ask me anything with \`/sos-ask\` — I answer from the team's own notes
 
 *How we work*
 • Standup is 9am WAT every weekday in #standup
@@ -254,11 +254,11 @@ Here's everything you need for your first week.
 
 *Where things live*
 • Code — github.com/divinefavourak/jesutobi_bot-slack
-• Tasks — run \`/tasks\` and pick something up
-• Decisions — run \`/memories\`. If we decided it, I wrote it down
+• Tasks — run \`/sos-tasks\` and pick something up
+• Decisions — run \`/sos-memories\`. If we decided it, I wrote it down
 
 *Try me*
-\`/ask what did we decide about the database?\`
+\`/sos-ask what did we decide about the database?\`
 \`@SlackOS what time is standup?\`
 
 Stuck on anything? Ask in the channel. Someone always answers.`;
@@ -294,7 +294,7 @@ const state = {
   workflows: [
     {id:2, trigger:"channel_member_join", channel:"bot-spam", action:"send_message",
      label:"the short welcome",
-     payload:"Glad you're here! Run `/help` to see what I can do, and shout if you need anything.",
+     payload:"Glad you're here! Run `/sos-help` to see what I can do, and shout if you need anything.",
      enabled:false},
     {id:3, trigger:"channel_member_join", channel:"bot-spam", action:"dm_user",
      label:"the handbook",
@@ -414,19 +414,19 @@ function listTasks(){
   const rows = [...state.tasks].sort((a,b) => b.id - a.id).map(t =>
     `${t.status==="done"?"✓":"•"} \`#${t.id}\` *${t.title}* — ${t.assignee||"Unassigned"} — ${t.due||"No deadline"} — _${t.status}_`
   ).join("\n");
-  return "Here are your tasks:\n" + rows + "\n\n_Use `/done <id>` when one is finished._";
+  return "Here are your tasks:\n" + rows + "\n\n_Use `/sos-done <id>` when one is finished._";
 }
 function listMemories(){
-  if(!state.memories.length) return "I haven't remembered anything yet. Try `/ask remember that standup is at 9am`";
+  if(!state.memories.length) return "I haven't remembered anything yet. Try `/sos-ask remember that standup is at 9am`";
   return "Here's what I remember:\n" +
     [...state.memories].sort((a,b)=>b.id-a.id).map(m => `\`#${m.id}\` ${m.content}`).join("\n") +
-    "\n\n_Use `/forget <id>` to remove one._";
+    "\n\n_Use `/sos-forget <id>` to remove one._";
 }
 function listWorkflows(){
-  if(!state.workflows.length) return "No workflows yet. Try `/ask when someone joins #design, send onboarding docs`";
+  if(!state.workflows.length) return "No workflows yet. Try `/sos-ask when someone joins #design, send onboarding docs`";
   return "Here are your workflows:\n" +
     state.workflows.map(w => `\`#${w.id}\` When *${w.trigger}* in #${w.channel}, ${w.action}${w.payload?` ("${w.payload}")`:""} — _${w.enabled?"enabled":"disabled"}_`).join("\n") +
-    "\n\n_Use `/workflow disable <id>` to pause one._";
+    "\n\n_Use `/sos-workflows disable <id>` to pause one._";
 }
 
 // Stands in for the Groq intent call. The real bot classifies with an LLM;
@@ -516,7 +516,7 @@ function handleAsk(msg){
     flash(`[data-m="${best.id}"]`);
     return {text:`${best.content}.`, foot:"📌 Based on saved memory"};
   }
-  return "I don't have anything saved about that yet. Tell me with `/ask remember that ...` and I'll keep it.";
+  return "I don't have anything saved about that yet. Tell me with `/sos-ask remember that ...` and I'll keep it.";
 }
 
 /* ---------------- the event trigger — the part a screenshot can't show ---------------- */
@@ -557,14 +557,14 @@ async function run(raw){
 
   if(isMention){
     const q = input.replace(/^@slackos\b/i,"").trim();
-    if(!q){ await botSay("Hey! Ask me something, e.g. `@SlackOS what's our standup time?` — or run `/help`."); return; }
+    if(!q){ await botSay("Hey! Ask me something, e.g. `@SlackOS what's our standup time?` — or run `/sos-help`."); return; }
     const r = handleAsk(q);
     await botSay(typeof r === "string" ? r : r.text, typeof r === "string" ? null : r.foot);
     return;
   }
 
   if(!isCmd){
-    await botSay("I only listen to slash commands and @mentions in a channel. Try `/help`, or `@SlackOS what's our standup time?`");
+    await botSay("I only listen to slash commands and @mentions in a channel. Try `/sos-help`, or `@SlackOS what's our standup time?`");
     return;
   }
 
@@ -572,50 +572,53 @@ async function run(raw){
   const arg = rest.join(" ");
 
   switch(cmd.toLowerCase()){
-    case "/help":
+    case "/sos-help":
       await botSay(
-        "*Tasks*\n`/tasks` list · `/done <id>` finish · `/reopen <id>` reopen\n\n" +
-        "*Memory*\n`/memories` list · `/forget <id>` delete\n\n" +
-        "*Workflows*\n`/workflows` list · `/workflow enable|disable|delete <id>`\n\n" +
-        "*Natural language*\n`/ask <anything>` — creates tasks, answers questions, saves memories, builds automations\n\n" +
-        "*For fun*\n`/joke` · `/meow-fact` · `/no` · `/dping`\n\n" +
+        "*Tasks*\n`/sos-tasks` list · `/sos-done <id>` finish · `/sos-reopen <id>` reopen\n\n" +
+        "*Memory*\n`/sos-memories` list · `/sos-forget <id>` delete\n\n" +
+        "*Workflows*\n`/sos-workflows` list · `/sos-workflows enable|disable|delete <id>`\n\n" +
+        "*Natural language*\n`/sos-ask <anything>` — creates tasks, answers questions, saves memories, builds automations\n\n" +
+        "*For fun*\n`/sos-joke` · `/sos-meow-fact` · `/sos-no` · `/sos-ping`\n\n" +
         "You can also just `@SlackOS` me in a channel.");
       break;
 
-    case "/tasks": await botSay(listTasks()); break;
-    case "/memories": await botSay(listMemories()); break;
-    case "/workflows": await botSay(listWorkflows()); break;
+    case "/sos-tasks": await botSay(listTasks()); break;
+    case "/sos-memories": await botSay(listMemories()); break;
+    
 
-    case "/done": case "/reopen": {
+    case "/sos-done": case "/sos-reopen": {
       const id = parseId(arg);
-      const want = cmd.toLowerCase() === "/done" ? "done" : "pending";
-      if(!id){ await botSay(`Which task? Use \`${cmd} <id>\` — run \`/tasks\` to see the ids.`); break; }
+      const want = cmd.toLowerCase() === "/sos-done" ? "done" : "pending";
+      if(!id){ await botSay(`Which task? Use \`${cmd} <id>\` — run \`/sos-tasks\` to see the ids.`); break; }
       const t = state.tasks.find(x => x.id === id);
-      if(!t){ await botSay(`I couldn't find task \`#${id}\`. Run \`/tasks\` to see the ids.`); break; }
+      if(!t){ await botSay(`I couldn't find task \`#${id}\`. Run \`/sos-tasks\` to see the ids.`); break; }
       t.status = want; renderRail(); flash(`[data-t="${id}"]`);
       await botSay(want === "done" ? `Nice. *${t.title}* is done.` : `*${t.title}* is back to _pending_.`);
       break;
     }
 
-    case "/forget": {
+    case "/sos-forget": {
       const id = parseId(arg);
-      if(!id){ await botSay("Which memory? Use `/forget <id>` — run `/memories` to see the ids."); break; }
+      if(!id){ await botSay("Which memory? Use `/sos-forget <id>` — run `/sos-memories` to see the ids."); break; }
       const i = state.memories.findIndex(m => m.id === id);
-      if(i < 0){ await botSay(`I couldn't find memory \`#${id}\`. Run \`/memories\` to see the ids.`); break; }
+      if(i < 0){ await botSay(`I couldn't find memory \`#${id}\`. Run \`/sos-memories\` to see the ids.`); break; }
       const [gone] = state.memories.splice(i,1); renderRail();
       await botSay(`Forgotten:\n_"${gone.content}"_`);
       break;
     }
 
-    case "/workflow": {
+    // Bare -> list. With a verb -> manage. One command, so a missing "s"
+    // can't silently run a different one.
+    case "/sos-workflows": {
+      if(!arg){ await botSay(listWorkflows()); break; }
       const op = (rest[0]||"").toLowerCase();
       const id = parseId(arg);
       if(!["enable","disable","delete"].includes(op)){
-        await botSay("Usage: `/workflow enable|disable|delete <id>`\nRun `/workflows` to see the ids."); break;
+        await botSay("Usage: `/sos-workflows` to list, or `/sos-workflows enable|disable|delete <id>` to manage one."); break;
       }
-      if(!id){ await botSay(`Which workflow? Use \`/workflow ${op} <id>\` — run \`/workflows\` to see the ids.`); break; }
+      if(!id){ await botSay(`Which workflow? Use \`/sos-workflows ${op} <id>\` — run \`/sos-workflows\` to see the ids.`); break; }
       const i = state.workflows.findIndex(w => w.id === id);
-      if(i < 0){ await botSay(`I couldn't find workflow \`#${id}\`. Run \`/workflows\` to see the ids.`); break; }
+      if(i < 0){ await botSay(`I couldn't find workflow \`#${id}\`. Run \`/sos-workflows\` to see the ids.`); break; }
       if(op === "delete"){
         const [gone] = state.workflows.splice(i,1); renderRail();
         await botSay(`Deleted workflow \`#${gone.id}\` (was: *${gone.trigger}* in #${gone.channel}).`);
@@ -628,32 +631,32 @@ async function run(raw){
       break;
     }
 
-    case "/ask": {
-      if(!arg){ await botSay("Type something after `/ask`. Example: `/ask remind Divine to finish the UI by Friday`"); break; }
+    case "/sos-ask": {
+      if(!arg){ await botSay("Type something after `/sos-ask`. Example: `/sos-ask remind Divine to finish the UI by Friday`"); break; }
       const r = handleAsk(arg);
       await botSay(typeof r === "string" ? r : r.text, typeof r === "string" ? null : r.foot);
       break;
     }
 
-    case "/joke": await botSay("Why did the developer go broke?\nBecause he used up all his cache."); break;
-    case "/meow-fact": await botSay("Cat fact: A group of cats is called a clowder."); break;
-    case "/no": await botSay("Here's a silly excuse for you: The Wi-Fi was down in my heart."); break;
-    case "/dping": await botSay(`Pong! Latency: ${8 + Math.floor(Math.random()*40)}ms`); break;
+    case "/sos-joke": await botSay("Why did the developer go broke?\nBecause he used up all his cache."); break;
+    case "/sos-meow-fact": await botSay("Cat fact: A group of cats is called a clowder."); break;
+    case "/sos-no": await botSay("Here's a silly excuse for you: The Wi-Fi was down in my heart."); break;
+    case "/sos-ping": await botSay(`Pong! Latency: ${8 + Math.floor(Math.random()*40)}ms`); break;
 
     default:
-      await botSay(`I don't know \`${cmd}\` yet. Run \`/help\` to see what I can do.`);
+      await botSay(`I don't know \`${cmd}\` yet. Run \`/sos-help\` to see what I can do.`);
   }
 }
 
 /* ---------------- suggestion chips ---------------- */
 const CHIPS = [
   {label:"⚡ someone joins #bot-spam", fire:true, run:simulateJoin},
-  {label:"/tasks", text:"/tasks"},
-  {label:"/done 10", text:"/done 10"},
-  {label:"/ask what did we decide about the logo?", text:"/ask what did we decide about the logo?"},
-  {label:"/ask remind Ada to write the changelog by Friday", text:"/ask remind Ada to write the changelog by Friday"},
-  {label:"/workflows", text:"/workflows"},
-  {label:"/help", text:"/help"}
+  {label:"/sos-tasks", text:"/sos-tasks"},
+  {label:"/sos-done 10", text:"/sos-done 10"},
+  {label:"/sos-ask what did we decide about the logo?", text:"/sos-ask what did we decide about the logo?"},
+  {label:"/sos-ask remind Ada to write the changelog by Friday", text:"/sos-ask remind Ada to write the changelog by Friday"},
+  {label:"/sos-workflows", text:"/sos-workflows"},
+  {label:"/sos-help", text:"/sos-help"}
 ];
 
 let busy = false;
@@ -685,7 +688,7 @@ renderRail();
   addEvent("SlackOS was added to #bot-spam");
   await botSay(
     "I'm SlackOS. Say what you want in plain english and I'll do it — no forms.\n\n" +
-    "Try `/tasks`, or ask me `@SlackOS what's our standup time?`\n\n" +
+    "Try `/sos-tasks`, or ask me `@SlackOS what's our standup time?`\n\n" +
     "The real trick is the ⚡ button below: it simulates someone joining this channel, and I react on my own.",
     "Everything on the right is my live state. Watch it change as you type."
   );

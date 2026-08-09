@@ -87,6 +87,7 @@ code{font-family:var(--mono)}
 .text strong{font-weight:650}
 .mention{color:var(--coral);background:rgba(232,112,90,.13);border-radius:4px;padding:0 3px}
 .foot{color:var(--muted);font-size:12.5px;margin-top:5px}
+.memeimg{max-width:min(100%,340px);border-radius:8px;border:1px solid var(--rule);margin-top:7px;display:block}
 
 /* system / event line */
 .evt{
@@ -163,6 +164,12 @@ code{font-family:var(--mono)}
 .dot.off{background:var(--rule);border:1px solid var(--muted)}
 .dot.pend{background:var(--coral)}
 .row.flash{border-color:var(--coral);background:rgba(232,112,90,.11)}
+.youcard{display:block;margin-bottom:14px;padding:10px 12px}
+.youcard .lvl{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.youcard .lvl b{font-size:13px;font-weight:650}
+.youcard .lvl span{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.youcard .bar{font-family:var(--mono);font-size:12px;color:var(--coral);letter-spacing:1px;margin-top:5px}
+.youcard .sub{font-size:11px;color:var(--muted);margin-top:3px}
 .empty{color:var(--muted);font-size:12px;font-style:italic;padding:4px 2px}
 
 ::-webkit-scrollbar{width:9px}
@@ -209,6 +216,8 @@ code{font-family:var(--mono)}
     <aside class="rail">
       <div class="railtop">Bot state</div>
       <p class="railnote">This is what SlackOS is holding in Postgres. It changes as you type — that's the whole point of the thing.</p>
+
+      <div class="row youcard" id="youCard"></div>
 
       <div class="counts">
         <div class="count"><b id="cT">0</b><span>Tasks</span></div>
@@ -300,8 +309,84 @@ const state = {
      label:"the handbook",
      payload:HANDBOOK, enabled:true}
   ],
-  nextTask:15, nextMem:11, nextFlow:4
+  nextTask:15, nextMem:11, nextFlow:4,
+
+  // --- game layer ---
+  you: { name:"You", xp:40, streak:3, shoutouts:0 },
+  players: [
+    { name:"Ada",    xp:520, streak:6 },
+    { name:"Tobi",   xp:310, streak:2 },
+    { name:"Divine", xp:180, streak:4 }
+  ]
 };
+
+// Mirrors engines/gameEngine.js
+const XP_PER_LEVEL = 100;
+const TITLES = ["Lurker","Button Masher","Script Kiddie","Bug Whisperer","Merge Goblin",
+                "Deploy Gremlin","Rubber Ducker","Stack Overlord","Ship Captain","Certified Menace"];
+const levelFor = (xp) => Math.floor((xp||0)/XP_PER_LEVEL) + 1;
+const titleFor = (lvl) => TITLES[Math.min(lvl, TITLES.length) - 1];
+const xpToNext = (xp) => XP_PER_LEVEL - ((xp||0) % XP_PER_LEVEL);
+const progressBar = (xp) => {
+  const filled = Math.floor(((xp||0) % XP_PER_LEVEL) / (XP_PER_LEVEL/10));
+  return "█".repeat(filled) + "░".repeat(10 - filled);
+};
+
+// Award XP to the player and report a level-up the way the real bot does.
+function awardXp(amount, extra = {}) {
+  const before = levelFor(state.you.xp);
+  state.you.xp += amount;
+  if (extra.shoutout) state.you.shoutouts++;
+  const after = levelFor(state.you.xp);
+  renderRail(); flash("#youCard");
+
+  if (after > before) return `\n\n🎉 *+${amount} XP* — level *${after}*, _${titleFor(after)}_!`;
+  return `\n\n_+${amount} XP${state.you.streak > 1 ? ` · ${state.you.streak} day streak 🔥` : ""}_`;
+}
+
+// Same 15 questions as the bot's offline bank.
+const QUESTIONS = [
+  ["What does 'HTTP' stand for?","HyperText Transfer Protocol",["HyperText Transmission Process","High Transfer Text Protocol","Hyperlink Text Transfer Path"],"easy"],
+  ["Which company created JavaScript?","Netscape",["Microsoft","Sun Microsystems","Google"],"medium"],
+  ["What does 'git commit' actually do?","Saves a snapshot to your local repository",["Uploads your code to GitHub","Creates a new branch","Merges two branches"],"easy"],
+  ["In binary, what is 1010?","10",["8","12","20"],"easy"],
+  ["What does 'CSS' stand for?","Cascading Style Sheets",["Computer Style Syntax","Creative Styling System","Cascading Syntax Sheets"],"easy"],
+  ["Which of these is NOT a JavaScript data type?","Float",["Symbol","BigInt","Undefined"],"medium"],
+  ["What port does HTTPS use by default?","443",["80","8080","22"],"medium"],
+  ["What does 'API' stand for?","Application Programming Interface",["Applied Program Integration","Automated Process Invocation","Application Process Identifier"],"easy"],
+  ["Who is credited with writing the first computer algorithm?","Ada Lovelace",["Alan Turing","Grace Hopper","Charles Babbage"],"medium"],
+  ["Which HTTP status code means 'Too Many Requests'?","429",["404","500","403"],"hard"],
+  ["What does 'DRY' stand for in programming?","Don't Repeat Yourself",["Do Rewrite Yearly","Debug Rapidly Yourself","Data Redundancy Yield"],"easy"],
+  ["What is the default branch name Git uses today?","main",["master","trunk","default"],"easy"],
+  ["What does 'RAM' stand for?","Random Access Memory",["Rapid Access Module","Read Access Memory","Runtime Allocated Memory"],"easy"]
+];
+const LETTERS = ["a","b","c","d"];
+let openRound = null;
+
+const EIGHT_BALL = [
+  "It is certain.","Without a doubt.","Yes, obviously.","Signs point to yes.",
+  "Ask again after you've pushed to main.","Reply hazy, try turning it off and on again.",
+  "My sources say no.","Absolutely not.","Don't count on it.",
+  "The compiler says no, and so do I.","Yes, but you'll regret it.",
+  "Only if you write tests first.","That's a Friday deploy question. So no."
+];
+
+// The live bot generates these with Groq. The demo is static and keyless, so
+// it picks from a list written in the same spirit: code habits, never people.
+const ROASTS = [
+  "you name every branch 'test2' and somehow always merge the wrong one.",
+  "your commit message says 'fix' and it has 400 changed lines.",
+  "you've got 47 browser tabs open and you're still googling 'how to center a div'.",
+  "you write the tests after the deploy, like a gambler.",
+  "your variable names are 'data', 'data2' and 'finalData'."
+];
+const HYPES = [
+  "shipped it, tested it, and made it look easy. Go on then.",
+  "turning up every single day is the whole trick, and you're doing it.",
+  "that bug had no idea what was coming. Genuinely nice work.",
+  "you made the hard part look boring, which is the highest compliment in software."
+];
+const pick1 = (arr) => arr[Math.floor(Math.random()*arr.length)];
 
 const JOINERS = ["Ada","Kwame","Zainab","Chidi","Femi","Amara"];
 let joinIdx = 0;
@@ -379,6 +464,14 @@ function flash(sel){
 }
 
 function renderRail(){
+  const lvl = levelFor(state.you.xp);
+  $("youCard").innerHTML =
+    `<div class="lvl"><b>Level ${lvl} · ${esc(titleFor(lvl))}</b><span>${state.you.xp} XP</span></div>
+     <div class="bar">${progressBar(state.you.xp)}</div>
+     <div class="sub">${xpToNext(state.you.xp)} XP to next level` +
+    `${state.you.streak > 1 ? ` · ${state.you.streak} day streak 🔥` : ""}` +
+    `${state.you.shoutouts ? ` · ${state.you.shoutouts} shoutout${state.you.shoutouts>1?"s":""} 🏅` : ""}</div>`;
+
   $("cT").textContent = state.tasks.length;
   $("cM").textContent = state.memories.length;
   $("cW").textContent = state.workflows.length;
@@ -546,6 +639,52 @@ async function simulateJoin(){
   }
 }
 
+function formatRound(r){
+  return `🧠 *Trivia* _(${r.difficulty})_\n${r.question}\n\n` +
+         r.options.map((o,i) => `${LETTERS[i]}) ${o}`).join("\n") +
+         "\n\n_Answer with_ `/sos-answer a`";
+}
+
+// The live bot pulls a real meme from meme-api.com. This page is static, so it
+// tries the same API and falls back to a caption if the browser blocks it --
+// a broken image icon is a worse demo than no image at all.
+// r/ProgrammerHumor titles are camelCase by convention, so split them back
+// into words before showing. Mirrors funEngine.humanizeTitle.
+function humanizeTitle(t){
+  if(!t) return "Meme";
+  let s = String(t);
+  if(!/\s/.test(s) && /[a-z][A-Z]/.test(s)){
+    s = s.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  }
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+async function showMeme(){
+  await typing(500);
+  try {
+    const res = await fetch("https://meme-api.com/gimme/ProgrammerHumor", { signal: AbortSignal.timeout(6000) });
+    const m = await res.json();
+    if(m && m.url && !m.nsfw && !m.spoiler && /\.(jpg|jpeg|png|gif)$/i.test(m.url)){
+      const el = document.createElement("div");
+      el.className = "msg";
+      el.innerHTML =
+        `<div class="av bot">S</div>
+         <div class="body">
+           <div class="who"><span class="name">SlackOS</span><span class="badge">app</span><span class="time">${clock()}</span></div>
+           <div class="text"><strong>${esc(humanizeTitle(m.title))}</strong><br><em>r/${esc(m.subreddit)}</em></div>
+           <img src="${esc(m.url)}" alt="${esc(humanizeTitle(m.title))}" class="memeimg" loading="lazy">
+         </div>`;
+      $("log").appendChild(el); scroll();
+      return;
+    }
+  } catch (err) {
+    console.log("meme fetch unavailable:", err.message);
+  }
+  addMsg({ who:"bot", name:"SlackOS",
+    text:"*When the tests pass on the first try*\n_r/ProgrammerHumor_",
+    foot:"The live bot posts the actual image. This page can't always reach the meme API from a browser." });
+}
+
 /* ---------------- dispatcher ---------------- */
 async function run(raw){
   const input = raw.trim();
@@ -577,6 +716,8 @@ async function run(raw){
         "*Tasks*\n`/sos-tasks` list · `/sos-done <id>` finish · `/sos-reopen <id>` reopen\n\n" +
         "*Memory*\n`/sos-memories` list · `/sos-forget <id>` delete\n\n" +
         "*Workflows*\n`/sos-workflows` list · `/sos-workflows enable|disable|delete <id>`\n\n" +
+        "*Games*\n`/sos-trivia` · `/sos-answer a` · `/sos-rank` · `/sos-leaderboard` · `/sos-shoutout @ada`\n\n" +
+        "*Fun*\n`/sos-meme` · `/sos-roast` · `/sos-hype` · `/sos-8ball`\n\n" +
         "*Natural language*\n`/sos-ask <anything>` — creates tasks, answers questions, saves memories, builds automations\n\n" +
         "*For fun*\n`/sos-joke` · `/sos-meow-fact` · `/sos-no` · `/sos-ping`\n\n" +
         "You can also just `@SlackOS` me in a channel.");
@@ -592,8 +733,11 @@ async function run(raw){
       if(!id){ await botSay(`Which task? Use \`${cmd} <id>\` — run \`/sos-tasks\` to see the ids.`); break; }
       const t = state.tasks.find(x => x.id === id);
       if(!t){ await botSay(`I couldn't find task \`#${id}\`. Run \`/sos-tasks\` to see the ids.`); break; }
+      const wasDone = t.status === "done";
       t.status = want; renderRail(); flash(`[data-t="${id}"]`);
-      await botSay(want === "done" ? `Nice. *${t.title}* is done.` : `*${t.title}* is back to _pending_.`);
+      if(want !== "done"){ await botSay(`*${t.title}* is back to _pending_.`); break; }
+      // Re-completing an already-done task pays nothing, same as the real bot.
+      await botSay(`Nice. *${t.title}* is done.` + (wasDone ? "" : awardXp(10)));
       break;
     }
 
@@ -638,6 +782,86 @@ async function run(raw){
       break;
     }
 
+    // ---------- games ----------
+    case "/sos-trivia": {
+      if(openRound){ await botSay(`There's already a question on the table:\n\n${formatRound(openRound)}`); break; }
+      const [question, correct, wrong, difficulty] = pick1(QUESTIONS);
+      const options = [correct, ...wrong].map(o=>o);
+      for(let i=options.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [options[i],options[j]]=[options[j],options[i]]; }
+      openRound = { question, options, correctIndex: options.indexOf(correct), difficulty };
+      await botSay(formatRound(openRound));
+      break;
+    }
+
+    case "/sos-answer": {
+      if(!arg){ await botSay("Answer with a letter, like `/sos-answer b`."); break; }
+      if(!openRound){ await botSay("No question running here. Start one with `/sos-trivia`."); break; }
+      const guess = arg.trim().toLowerCase().replace(/[).:]$/,"");
+      let idx = LETTERS.indexOf(guess);
+      if(idx === -1) idx = openRound.options.findIndex(o => o.toLowerCase() === guess);
+      if(idx === -1){ await botSay("That's not one of the options. Answer with `a`, `b`, `c` or `d`."); break; }
+      const round = openRound; openRound = null;
+      if(idx === round.correctIndex){
+        await botSay(`✅ *${round.options[round.correctIndex]}* is right!` + awardXp(20));
+      } else {
+        await botSay(`❌ Not quite — you said *${round.options[idx]}*. The answer was *${round.options[round.correctIndex]}*.\nAnother one? \`/sos-trivia\``);
+      }
+      break;
+    }
+
+    case "/sos-rank": {
+      const lvl = levelFor(state.you.xp);
+      const ahead = state.players.filter(p => p.xp > state.you.xp).length;
+      await botSay(
+        `*You* — level ${lvl}, _${titleFor(lvl)}_\n` +
+        `\`${progressBar(state.you.xp)}\`  ${state.you.xp} XP · ${xpToNext(state.you.xp)} to next level\n` +
+        `Rank *#${ahead + 1}* of ${state.players.length + 1}` +
+        `${state.you.streak > 1 ? ` · ${state.you.streak} day streak 🔥` : ""}` +
+        `${state.you.shoutouts ? ` · ${state.you.shoutouts} shoutout${state.you.shoutouts>1?"s":""} 🏅` : ""}`);
+      break;
+    }
+
+    case "/sos-leaderboard": {
+      const all = [...state.players, {name:"You", xp:state.you.xp, streak:state.you.streak}]
+        .sort((a,b) => b.xp - a.xp);
+      const medals = ["🥇","🥈","🥉"];
+      await botSay("*Leaderboard*\n" + all.map((p,i) => {
+        const lvl = levelFor(p.xp);
+        const mark = medals[i] || `${String(i+1).padStart(2," ")}.`;
+        return `${mark} *${p.name}* — ${p.xp} XP · lvl ${lvl} _${titleFor(lvl)}_${p.streak>1?` · ${p.streak}🔥`:""}`;
+      }).join("\n") + "\n\n_See your own standing with_ `/sos-rank`");
+      break;
+    }
+
+    case "/sos-shoutout": {
+      const who = (arg.match(/@([\w.\-]+)/)||[])[1];
+      if(!who){ await botSay("Who deserves it? Try `/sos-shoutout @ada for fixing the nav bug`."); break; }
+      const why = arg.replace(/@[\w.\-]+/,"").replace(/^\s*(for|because)\s+/i,"").trim();
+      const target = state.players.find(p => p.name.toLowerCase() === who.toLowerCase());
+      if(target) target.xp += 25;
+      await botSay(`🏅 Shoutout to *@${who}*${why ? " " + why : ""}\n_from <@You>_` + awardXp(5));
+      break;
+    }
+
+    // ---------- fun ----------
+    case "/sos-meme": await showMeme(); break;
+
+    case "/sos-8ball":
+      await botSay(arg ? `🎱 *${arg}*\n${pick1(EIGHT_BALL)}` : `🎱 ${pick1(EIGHT_BALL)}`);
+      break;
+
+    case "/sos-roast": {
+      const who = (arg.match(/@([\w.\-]+)/)||[])[1];
+      await botSay(`🔥 ${who ? `@${who}, ` : ""}${pick1(ROASTS)}`);
+      break;
+    }
+
+    case "/sos-hype": {
+      const who = (arg.match(/@([\w.\-]+)/)||[])[1];
+      await botSay(`⚡ ${who ? `@${who} ` : ""}${pick1(HYPES)}`);
+      break;
+    }
+
     case "/sos-joke": await botSay("Why did the developer go broke?\nBecause he used up all his cache."); break;
     case "/sos-meow-fact": await botSay("Cat fact: A group of cats is called a clowder."); break;
     case "/sos-no": await botSay("Here's a silly excuse for you: The Wi-Fi was down in my heart."); break;
@@ -651,11 +875,13 @@ async function run(raw){
 /* ---------------- suggestion chips ---------------- */
 const CHIPS = [
   {label:"⚡ someone joins #bot-spam", fire:true, run:simulateJoin},
-  {label:"/sos-tasks", text:"/sos-tasks"},
+  {label:"/sos-trivia", text:"/sos-trivia"},
+  {label:"/sos-meme", text:"/sos-meme"},
+  {label:"/sos-leaderboard", text:"/sos-leaderboard"},
   {label:"/sos-done 10", text:"/sos-done 10"},
+  {label:"/sos-roast @tobi", text:"/sos-roast @tobi"},
+  {label:"/sos-tasks", text:"/sos-tasks"},
   {label:"/sos-ask what did we decide about the logo?", text:"/sos-ask what did we decide about the logo?"},
-  {label:"/sos-ask remind Ada to write the changelog by Friday", text:"/sos-ask remind Ada to write the changelog by Friday"},
-  {label:"/sos-workflows", text:"/sos-workflows"},
   {label:"/sos-help", text:"/sos-help"}
 ];
 

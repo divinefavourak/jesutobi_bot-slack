@@ -58,6 +58,30 @@ async function migrate() {
         `);
         console.log("✓ Workflows table ready");
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS players (
+                id SERIAL PRIMARY KEY,
+                slack_id VARCHAR(50) NOT NULL,
+                display_name VARCHAR(100),
+                xp INTEGER DEFAULT 0,
+                streak INTEGER DEFAULT 0,
+                last_active DATE,
+                shoutouts INTEGER DEFAULT 0,
+                trivia_correct INTEGER DEFAULT 0,
+                workspace_id VARCHAR(50),
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE (slack_id, workspace_id)
+            );
+        `);
+        console.log("✓ Players table ready");
+
+        // The leaderboard sorts by xp within one workspace.
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS players_leaderboard_idx
+            ON players (workspace_id, xp DESC);
+        `);
+        console.log("✓ Leaderboard index ready");
+
         // findMatchingWorkflows() runs on every channel join, so index the
         // exact columns it filters on.
         await pool.query(`

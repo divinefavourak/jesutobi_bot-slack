@@ -9,6 +9,43 @@ function parseId(text) {
     return match ? Number(match[0]) : null;
 }
 
+// "@ada" / "<@U123|ada>" / "<@U123>" -> { id, label }. Slack rewrites a typed
+// @mention into <@U123|name> inside command text, so both forms show up.
+function parseMention(text) {
+    const linked = String(text || "").match(/<@([A-Z0-9]+)(\|([^>]*))?>/i);
+    if (linked) return { id: linked[1], label: `<@${linked[1]}>`, name: linked[3] || null };
+
+    const plain = String(text || "").match(/@([\w.\-]+)/);
+    if (plain) return { id: null, label: `@${plain[1]}`, name: plain[1] };
+
+    return { id: null, label: null, name: null };
+}
+
+// Everything after the mention, minus a leading "for".
+function reasonAfterMention(text) {
+    return String(text || "")
+        .replace(/<@[A-Z0-9]+(\|[^>]*)?>/i, "")
+        .replace(/@[\w.\-]+/, "")
+        .replace(/^\s*(for|because)\s+/i, "")
+        .trim();
+}
+
+// route() returns a string for most things, but the meme route returns
+// { text, image } because a meme without the picture is just a caption.
+async function replyWith(respond, result) {
+    if (result && typeof result === "object" && result.image) {
+        await respond({
+            text: result.text,
+            blocks: [
+                { type: "section", text: { type: "mrkdwn", text: result.text } },
+                { type: "image", image_url: result.image, alt_text: result.text.slice(0, 150) }
+            ]
+        });
+        return;
+    }
+    await respond({ text: result });
+}
+
 // Run whatever the workflow row says to do, instead of hardcoding a public
 // welcome. `action` is already normalized to one of ACTIONS by workflowEngine.
 async function executeWorkflowAction(client, workflow, event) {
@@ -127,7 +164,9 @@ module.exports = function registerCommands(app) {
         const result = await route({
             type: "ai_message",
             message: userMessage,
-            workspaceId: command.team_id
+            workspaceId: command.team_id,
+            userId: command.user_id,
+            userName: command.user_name
         });
         await respond({ text: result });
     });
@@ -147,7 +186,9 @@ module.exports = function registerCommands(app) {
             type: "complete_task",
             taskId: parseId(command.text),
             status: "done",
-            workspaceId: command.team_id
+            workspaceId: command.team_id,
+            userId: command.user_id,
+            userName: command.user_name
         });
         await respond({ text: result });
     });
@@ -217,6 +258,95 @@ module.exports = function registerCommands(app) {
             workspaceId: command.team_id
         });
         await respond({ text: result });
+    });
+
+    // ---------- fun & games ----------
+
+    app.command("/sos-meme", async ({ ack, respond }) => {
+        await ack();
+        const result = await route({ type: "meme" });
+        await replyWith(respond, result);
+    });
+
+    app.command("/sos-8ball", async ({ command, ack, respond }) => {
+        await ack();
+        const result = await route({ type: "eightball", message: command.text });
+        await respond({ text: result });
+    });
+
+    app.command("/sos-roast", async ({ command, ack, respond }) => {
+        await ack();
+        const target = parseMention(command.text).label || command.text.trim() || null;
+        const result = await route({ type: "roast", target });
+        await respond({ text: result });
+    });
+
+    app.command("/sos-hype", async ({ command, ack, respond }) => {
+        await ack();
+        const target = parseMention(command.text).label || command.text.trim() || null;
+        const result = await route({ type: "hype", target });
+        await respond({ text: result });
+    });
+
+    // Trivia is per-channel so two channels can run their own round.
+    app.command("/sos-trivia", async ({ command, ack, respond }) => {
+        await ack();
+        const result = await route({
+            type: "trivia",
+            workspaceId: command.team_id,
+            channelId: command.channel_id
+        });
+        await respond({ text: result, response_type: "in_channel" });
+    });
+
+    app.command("/sos-answer", async ({ command, ack, respond }) => {
+        await ack();
+        const result = await route({
+            type: "trivia_answer",
+            guess: command.text,
+            workspaceId: command.team_id,
+            channelId: command.channel_id,
+            userId: command.user_id,
+            userName: command.user_name
+        });
+        await respond({ text: result, response_type: "in_channel" });
+    });
+
+    app.command("/sos-rank", async ({ command, ack, respond }) => {
+        await ack();
+        const result = await route({
+            type: "rank",
+            workspaceId: command.team_id,
+            userId: command.user_id,
+            userName: command.user_name
+        });
+        await respond({ text: result });
+    });
+
+    app.command("/sos-leaderboard", async ({ command, ack, respond }) => {
+        await ack();
+        const result = await route({
+            type: "leaderboard",
+            workspaceId: command.team_id
+        });
+        await respond({ text: result, response_type: "in_channel" });
+    });
+
+    // A shoutout nobody sees isn't a shoutout, so this one posts to the channel.
+    app.command("/sos-shoutout", async ({ command, ack, respond }) => {
+        await ack();
+        const mention = parseMention(command.text);
+        const result = await route({
+            type: "shoutout",
+            target: mention.label,
+            targetId: mention.id,
+            targetName: mention.name,
+            reason: reasonAfterMention(command.text),
+            workspaceId: command.team_id,
+            userId: command.user_id,
+            userName: command.user_name
+        });
+        await respond({ text: result, response_type: "in_channel" });
     });
 
     // Talk to the bot by @mentioning it, no slash command needed.

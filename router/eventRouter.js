@@ -10,6 +10,29 @@ const {
     normalizeAction,
     ACTIONS
 } = require("../engines/workflowEngine");
+const game = require("../engines/gameEngine");
+const fun = require("../engines/funEngine");
+
+// XP is a side effect: if the game tables are missing or a write fails, the
+// real action (finishing a task, saving a memory) must still succeed.
+async function award(event, amount, extra) {
+    if (!event.userId) return null;
+    try {
+        return await game.awardXp(event.userId, event.userName, amount, event.workspaceId, extra);
+    } catch (err) {
+        console.error("XP award failed:", err.message);
+        return null;
+    }
+}
+
+// One line appended to a reply when something was earned.
+function xpNote(result) {
+    if (!result) return "";
+    if (result.leveledUp) {
+        return `\n\n🎉 *+${result.gained} XP* — level *${result.level}*, _${result.title}_!`;
+    }
+    return `\n\n_+${result.gained} XP${result.streak > 1 ? ` · ${result.streak} day streak 🔥` : ""}_`;
+}
 
 // The LLM is not consistent about entity key names or shapes between calls --
 // the same sentence can come back as {task, deadline}, {title, due}, or
@@ -82,8 +105,17 @@ async function route(event) {
             "`/sos-workflows` — list your rules",
             "`/sos-workflows enable|disable|delete [id]` — manage a rule",
             "",
+            "*Games*",
+            "`/sos-trivia` — a computing question, `/sos-answer a` to answer",
+            "`/sos-rank` — your XP, level and streak",
+            "`/sos-leaderboard` — who's winning",
+            "`/sos-shoutout [@someone] for [reason]` — hand out props and XP",
+            "",
             "*For fun*",
+            "`/sos-meme` · `/sos-roast` · `/sos-hype` · `/sos-8ball`",
             "`/sos-joke` · `/sos-meow-fact` · `/sos-no` · `/sos-ping`",
+            "",
+            "_You earn XP for finishing tasks, saving memories, building automations and winning trivia._",
             "",
             "You can also just @mention me in a channel instead of using `/sos-ask`.",
             "`/sos-help` — this message"
@@ -112,6 +144,124 @@ async function route(event) {
 
     if (event.type === "workflow_admin") {
         return await handleWorkflowAdmin(event);
+    }
+
+    // ---------- fun & games ----------
+
+    if (event.type === "meme") {
+        const meme = await fun.getMeme();
+        if (!meme) {
+            return "Couldn't reach the meme mines. Try again in a sec.";
+        }
+        return { text: `*${meme.title}*\n_r/${meme.subreddit}_`, image: meme.url };
+    }
+
+    if (event.type === "eightball") {
+        return fun.eightBall(event.message);
+    }
+
+    if (event.type === "roast") {
+        return await fun.roast(event.target);
+    }
+
+    if (event.type === "hype") {
+        return await fun.hype(event.target);
+    }
+
+    if (event.type === "trivia") {
+        const existing = fun.getPendingTrivia(event.workspaceId, event.channelId);
+        if (existing) {
+            return `There's already a question on the table:\n\n${fun.formatTrivia(existing)}`;
+        }
+
+        const round = await fun.startTrivia(event.workspaceId, event.channelId);
+        if (!round) return "Trivia's down right now. Try again shortly.";
+        return fun.formatTrivia(round);
+    }
+
+    if (event.type === "trivia_answer") {
+        if (!event.guess) {
+            return "Answer with a letter, like `/sos-answer b`.";
+        }
+
+        const result = fun.answerTrivia(event.workspaceId, event.channelId, event.guess);
+
+        if (result.noRound) {
+            return "No question running here. Start one with `/sos-trivia`.";
+        }
+        if (result.badGuess) {
+            return "That's not one of the options. Answer with `a`, `b`, `c` or `d`.";
+        }
+        if (!result.correct) {
+            return `❌ Not quite — you said *${result.chosen}*. The answer was *${result.answer}*.\nAnother one? \`/sos-trivia\``;
+        }
+
+        const earned = await award(event, game.XP.TRIVIA_CORRECT, { triviaCorrect: true });
+        return `✅ *${result.answer}* is right!${xpNote(earned)}`;
+    }
+
+    if (event.type === "rank") {
+        const player = await game.getPlayer(event.userId, event.workspaceId);
+
+        if (!player || player.xp === 0) {
+            return "You're not on the board yet. Finish a task with `/sos-done <id>` or win some `/sos-trivia`.";
+        }
+
+        const level = game.levelFor(player.xp);
+        const standing = await game.getStanding(event.userId, event.workspaceId);
+
+        return [
+            `*${player.display_name || "You"}* — level ${level}, _${game.titleFor(level)}_`,
+            `\`${game.progressBar(player.xp)}\`  ${player.xp} XP · ${game.xpToNext(player.xp)} to next level`,
+            `Rank *#${standing.position}* of ${standing.total}` +
+            `${player.streak > 1 ? ` · ${player.streak} day streak 🔥` : ""}` +
+            `${player.shoutouts > 0 ? ` · ${player.shoutouts} shoutout${player.shoutouts > 1 ? "s" : ""} 🏅` : ""}`
+        ].join("\n");
+    }
+
+    if (event.type === "leaderboard") {
+        const rows = await game.getLeaderboard(event.workspaceId);
+
+        if (rows.length === 0) {
+            return "Nobody's scored yet. Be the first — `/sos-done <id>` or `/sos-trivia`.";
+        }
+
+        const medals = ["🥇", "🥈", "🥉"];
+        const lines = rows.map((r, i) => {
+            const level = game.levelFor(r.xp);
+            const mark = medals[i] || `${String(i + 1).padStart(2, " ")}.`;
+            return `${mark} *${r.display_name || r.slack_id}* — ${r.xp} XP · lvl ${level} _${game.titleFor(level)}_` +
+                   `${r.streak > 1 ? ` · ${r.streak}🔥` : ""}`;
+        }).join("\n");
+
+        return `*Leaderboard*\n${lines}\n\n_See your own standing with_ \`/sos-rank\``;
+    }
+
+    if (event.type === "shoutout") {
+        if (!event.target) {
+            return "Who deserves it? Try `/sos-shoutout @ada for fixing the nav bug`.";
+        }
+        if (event.targetId && event.targetId === event.userId) {
+            return "Nice try. Shout out someone else.";
+        }
+
+        // The receiver earns the most; the giver earns a little for noticing.
+        let received = null;
+        if (event.targetId) {
+            received = await award(
+                { ...event, userId: event.targetId, userName: event.targetName },
+                game.XP.SHOUTOUT_RECEIVED,
+                { shoutout: true }
+            );
+        }
+        await award(event, game.XP.SHOUTOUT_GIVEN);
+
+        const reason = event.reason ? ` ${event.reason}` : "";
+        const levelUp = received && received.leveledUp
+            ? `\n🎉 That's level *${received.level}* for them — _${received.title}_!`
+            : "";
+
+        return `🏅 Shoutout to ${event.target}${reason}\n_from <@${event.userId}>_${levelUp}`;
     }
 
     if (event.type === "list_memories") {
@@ -154,9 +304,15 @@ async function route(event) {
             return `I couldn't find task \`#${event.taskId}\`. Run \`/sos-tasks\` to see the ids.`;
         }
 
-        return status === "done"
-            ? `Nice. *${updated.title}* is done.`
-            : `*${updated.title}* is back to _${updated.status}_.`;
+        // Only finishing earns XP. Reopening a task to farm /sos-done would be
+        // the first thing anyone here tries.
+        if (status !== "done") {
+            return `*${updated.title}* is back to _${updated.status}_.`;
+        }
+
+        const alreadyDone = updated.previous_status === "done";
+        const earned = alreadyDone ? null : await award(event, game.XP.TASK_DONE);
+        return `Nice. *${updated.title}* is done.${xpNote(earned)}`;
     }
 
     //ai setup
@@ -181,10 +337,14 @@ async function route(event) {
                 return await handleCreateTask(entities, event.workspaceId);
             case "ask_question":
                 return await handleAskQuestion(entities, event.workspaceId, event.message);
-            case "create_workflow":
-                return await handleCreateWorkflow(entities, event.workspaceId, event.message);
-            case "store_memory":
-                return await handleStoreMemory(entities, event.workspaceId, event.message);
+            case "create_workflow": {
+                const reply = await handleCreateWorkflow(entities, event.workspaceId, event.message);
+                return reply + xpNote(await award(event, game.XP.WORKFLOW_BUILT));
+            }
+            case "store_memory": {
+                const reply = await handleStoreMemory(entities, event.workspaceId, event.message);
+                return reply + xpNote(await award(event, game.XP.MEMORY_SAVED));
+            }
             default:
                 return "I understood your message but I don't know how to handle that yet.";
         }

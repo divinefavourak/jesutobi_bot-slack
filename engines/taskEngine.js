@@ -39,10 +39,16 @@ async function updateTaskStatus(taskId, status, workspaceId) {
         throw new Error(`Invalid status "${status}". Use one of: ${VALID_STATUSES.join(", ")}`);
     }
 
+    // The CTE captures the status as it was before the write, so callers can
+    // tell a real completion from re-running /sos-done on an already-done task.
+    // That distinction is what stops people farming XP by toggling a task.
     const result = await pool.query(
-        `UPDATE tasks SET status = $1
-        WHERE id = $2 AND workspace_id = $3
-        RETURNING *`,
+        `WITH before AS (
+            SELECT status FROM tasks WHERE id = $2 AND workspace_id = $3
+         )
+         UPDATE tasks SET status = $1
+         WHERE id = $2 AND workspace_id = $3
+         RETURNING *, (SELECT status FROM before) AS previous_status`,
         [status, id, workspaceId]
     );
 

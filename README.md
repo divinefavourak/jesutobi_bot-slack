@@ -40,12 +40,23 @@ real time. Pause or remove them with `/sos-workflows enable|disable|delete <id>`
 **Mentions** — `@SlackOS what's our standup time?` works in any channel it's in,
 and it replies in a thread so channels stay readable.
 
+**XP and levels** — Real work earns points. Finishing a task is 10 XP, saving a
+memory 5, building an automation 15, winning trivia 20, and getting a shoutout
+25. Every 100 XP is a level, and every level has a title worth chasing (you
+start as a Lurker and end up a Certified Menace). Daily streaks count too.
+`/sos-rank` shows yours, `/sos-leaderboard` shows everyone's.
+
+Completing an already-completed task pays nothing — otherwise the first thing
+anyone does is spam `/sos-done` on the same row.
+
 ---
 
 ## Commands
 
-All twelve commands, with the description and usage hint to register for each
+All twenty commands, with the description and usage hint to register for each
 one in the Slack dashboard.
+
+**Work**
 
 | # | Command | Description | Usage hint |
 |---|---|---|---|
@@ -57,10 +68,31 @@ one in the Slack dashboard.
 | 6 | `/sos-forget` | Delete a memory | `[memory id]` |
 | 7 | `/sos-workflows` | List automation rules, or manage one | `[enable\|disable\|delete] [id]` |
 | 8 | `/sos-help` | Show every command | |
-| 9 | `/sos-ping` | Check the bot is alive and how fast | |
-| 10 | `/sos-joke` | A random joke | |
-| 11 | `/sos-meow-fact` | A random cat fact | |
-| 12 | `/sos-no` | A silly excuse | |
+
+**Games**
+
+| # | Command | Description | Usage hint |
+|---|---|---|---|
+| 9 | `/sos-trivia` | Start a computing trivia question | |
+| 10 | `/sos-answer` | Answer the open trivia question | `[a, b, c or d]` |
+| 11 | `/sos-rank` | Your XP, level, streak and standing | |
+| 12 | `/sos-leaderboard` | Who's winning | |
+| 13 | `/sos-shoutout` | Give someone props and XP | `[@someone] for [reason]` |
+
+**Fun**
+
+| # | Command | Description | Usage hint |
+|---|---|---|---|
+| 14 | `/sos-meme` | A programming meme | |
+| 15 | `/sos-roast` | A playful roast | `[@someone]` |
+| 16 | `/sos-hype` | Hype someone up | `[@someone]` |
+| 17 | `/sos-8ball` | Ask the magic 8-ball | `[question]` |
+| 18 | `/sos-joke` | A random joke | |
+| 19 | `/sos-meow-fact` | A random cat fact | |
+| 20 | `/sos-no` | A silly excuse | |
+
+`/sos-ping` is registered too if you want a latency check — it's the one command
+that exists purely for debugging.
 
 `/sos-workflows` does double duty: bare it lists your rules, and with a verb it
 manages one (`/sos-workflows disable 3`). Keeping it as a single command avoids

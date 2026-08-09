@@ -15,6 +15,12 @@ const app = new App({
 //register commands
 registerCommands(app);
 
+// Without this, an error thrown inside a listener is swallowed by Bolt and the
+// handler just looks like it "never fired".
+app.error(async (error) => {
+    console.error("Bolt error:", error);
+});
+
 (async () => {
     await app.start();
     console.log("SlackOS is live");

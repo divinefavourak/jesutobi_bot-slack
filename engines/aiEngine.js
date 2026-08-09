@@ -1,20 +1,28 @@
 require("dotenv").config();
-//const OpenAI = require("openai");
 const Groq = require("groq-sdk");
 const axios = require("axios");
 
-// const apiKey = process.env.OPENROUTER_API_KEY;
 const apiKey = process.env.GROQ_API_KEY;
 
 if (!apiKey) {
     throw new Error("GROQ api key is missing from your .env file");
 }
 
-// const client = new OpenAI({
-//     baseURL: "https://openrouter.ai/api/v1",
-//     apiKey: apiKey,
-// });
 const client = new Groq({ apiKey });
+
+// The model is told to return bare JSON but often wraps it in ```json fences or
+// adds a sentence before it. Pull out the first {...} block so one chatty
+// response doesn't turn into an "unknown" intent.
+function extractJson(raw) {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenced ? fenced[1] : raw;
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1 || end < start) {
+        throw new Error(`No JSON object found in model response: ${raw.slice(0, 120)}`);
+    }
+    return JSON.parse(candidate.slice(start, end + 1));
+}
 
 async function detectIntent(userMessage) {
     const prompt = `
@@ -24,7 +32,7 @@ Analyze the user's message and return ONLY a valid JSON object — no explanatio
 
 The JSON must have:
 - "intent": one of [create_task, ask_question, store_memory, create_workflow, unknown]
-- "entities": object with any relevant data you can extract (assignee, task, deadline, question, topic, trigger, action)
+- "entities": object with any relevant data you can extract (assignee, task, deadline, question, topic, trigger, channel, action, payload)
 - "confidence": number between 0 and 1
 
 Examples:
@@ -49,8 +57,7 @@ Response:`;
             temperature: 0.1,
         });
         const raw = response.choices[0].message.content.trim();
-        const parsed = JSON.parse(raw);
-        return parsed;
+        return extractJson(raw);
     } catch (err) {
         console.error("AI Engine error:", err.message);
         return {
@@ -69,14 +76,16 @@ async function answerQuestion(question) {
             max_tokens: 300,
             temperature: 0.7,
         });
-        return response.choices[0]. message.content.trim();
+        return response.choices[0].message.content.trim();
     } catch (err) {
-        console.error("AI Engine error;", err.message);
+        console.error("AI Engine error:", err.message);
         return "I couldn't fetch an answer right now, try again."
     }
 }
 
-async function  generateEmbeddings(text) {
+// Kept for the vector-search path documented in memoryEngine.js. Unused today
+// because the Hugging Face endpoint is unreachable on this network.
+async function generateEmbedding(text) {
     try{
         const response = await axios.post(
             "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
@@ -96,4 +105,12 @@ async function  generateEmbeddings(text) {
     
 }
 
-module.exports = { detectIntent, answerQuestion, generateEmbeddings };
+// Exported under both names: memoryEngine.js's commented-out vector-search
+// block imports the singular form, so uncommenting it will just work.
+module.exports = {
+    detectIntent,
+    answerQuestion,
+    extractJson,
+    generateEmbedding,
+    generateEmbeddings: generateEmbedding
+};

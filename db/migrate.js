@@ -43,6 +43,29 @@ async function migrate() {
             ADD COLUMN IF NOT EXISTS embedding FLOAT[];
             `);
         console.log("Embedding column ready");
+
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS workflows (
+            id SERIAL PRIMARY KEY,
+            trigger VARCHAR(100) NOT NULL,
+            channel VARCHAR(100),
+            action VARCHAR(100),
+            payload TEXT,
+            enabled BOOLEAN DEFAULT true,
+            workspace_id VARCHAR(50),
+            created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        console.log("✓ Workflows table ready");
+
+        // findMatchingWorkflows() runs on every channel join, so index the
+        // exact columns it filters on.
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS workflows_lookup_idx
+            ON workflows (trigger, workspace_id, channel);
+        `);
+        console.log("✓ Workflow lookup index ready");
+
         console.log("Migration complete");
         process.exit(0);
 

@@ -26,16 +26,27 @@ async function getTasks(workspaceId) {
     
 }
 
-async function updateTaskStatus(taskId, status) {
+const VALID_STATUSES = ["pending", "in_progress", "done"];
+
+// workspaceId is part of the WHERE clause, not a check afterwards: task ids are
+// sequential integers, so without it anyone could complete another workspace's
+// task by guessing a number.
+async function updateTaskStatus(taskId, status, workspaceId) {
+    const id = Number(taskId);
+    if (!Number.isInteger(id)) return null;
+
+    if (!VALID_STATUSES.includes(status)) {
+        throw new Error(`Invalid status "${status}". Use one of: ${VALID_STATUSES.join(", ")}`);
+    }
+
     const result = await pool.query(
         `UPDATE tasks SET status = $1
-        WHERE id = $2
+        WHERE id = $2 AND workspace_id = $3
         RETURNING *`,
-        [status, taskId]
+        [status, id, workspaceId]
     );
 
-    return result.rows[0]
-    
+    return result.rows[0] || null;
 }
 
-module.exports = { createTask, getTasks, updateTaskStatus };
+module.exports = { createTask, getTasks, updateTaskStatus, VALID_STATUSES };

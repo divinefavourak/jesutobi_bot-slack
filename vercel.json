@@ -1,0 +1,6 @@
+{
+  "outputDirectory": "public",
+  "buildCommand": "echo 'static demo — nothing to build'",
+  "installCommand": "echo 'no dependencies needed for the demo'",
+  "cleanUrls": true
+}

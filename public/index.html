@@ -235,6 +235,34 @@ code{font-family:var(--mono)}
 /* ------------------------------------------------------------------
    Seed data mirrors what is actually deployed on the live bot.
    ------------------------------------------------------------------ */
+
+// The DM a new member actually receives. Same text as the live workflow row.
+const HANDBOOK = `*Welcome to the team* 👋
+
+Here's everything you need for your first week.
+
+*Start here*
+• Say hi in #bot-spam and tell us what you're working on
+• Run \`/help\` to see everything I can do
+• Ask me anything with \`/ask\` — I answer from the team's own notes
+
+*How we work*
+• Standup is 9am WAT every weekday in #standup
+• We deploy on Fridays before 4pm — never over the weekend
+• Every pull request needs at least one review before it can be merged
+• Sprint planning is every other Monday at 4pm
+
+*Where things live*
+• Code — github.com/divinefavourak/jesutobi_bot-slack
+• Tasks — run \`/tasks\` and pick something up
+• Decisions — run \`/memories\`. If we decided it, I wrote it down
+
+*Try me*
+\`/ask what did we decide about the database?\`
+\`@SlackOS what time is standup?\`
+
+Stuck on anything? Ask in the channel. Someone always answers.`;
+
 const state = {
   tasks: [
     {id:2,  title:"Finish the UI",                      assignee:"Divine", due:"Friday",       status:"pending"},
@@ -264,8 +292,13 @@ const state = {
     {id:10, content:"Sprint planning is every other Monday at 4pm"}
   ],
   workflows: [
-    {id:2, trigger:"channel_member_join", channel:"bot-spam", action:"send_message", payload:"onboarding docs", enabled:false},
-    {id:3, trigger:"channel_member_join", channel:"bot-spam", action:"dm_user",      payload:"handbook",        enabled:true}
+    {id:2, trigger:"channel_member_join", channel:"bot-spam", action:"send_message",
+     label:"the short welcome",
+     payload:"Glad you're here! Run `/help` to see what I can do, and shout if you need anything.",
+     enabled:false},
+    {id:3, trigger:"channel_member_join", channel:"bot-spam", action:"dm_user",
+     label:"the handbook",
+     payload:HANDBOOK, enabled:true}
   ],
   nextTask:15, nextMem:11, nextFlow:4
 };
@@ -331,6 +364,13 @@ async function botSay(text, foot, dm){
 }
 
 /* ---------------- state rail ---------------- */
+// A payload can be a whole handbook; the rail only has room for a hint of it.
+function preview(s){
+  if(!s) return "no message";
+  const flat = String(s).replace(/[*`_]/g,"").replace(/\s+/g," ").trim();
+  return "“" + (flat.length > 34 ? flat.slice(0,34) + "…" : flat) + "”";
+}
+
 function flash(sel){
   const el = document.querySelector(sel);
   if(!el) return;
@@ -348,7 +388,7 @@ function renderRail(){
        <span class="dot ${w.enabled?"on":"off"}"></span>
        <span class="id">#${w.id}</span>
        <span class="lbl"><span>${esc(w.action==="dm_user"?"DM the joiner":"Post in channel")}</span>
-       <small>on join · #${esc(w.channel)}${w.payload?" · “"+esc(w.payload)+"”":""} · ${w.enabled?"enabled":"paused"}</small></span>
+       <small>on join · #${esc(w.channel)} · ${esc(w.label || preview(w.payload))} · ${w.enabled?"enabled":"paused"}</small></span>
      </div>`).join("") : `<div class="empty">No rules.</div>`;
 
   const sorted = [...state.tasks].sort((a,b) => b.id - a.id);
@@ -495,7 +535,12 @@ async function simulateJoin(){
 
   for(const w of matches){
     flash(`[data-w="${w.id}"]`);
-    const text = `Welcome <@${person}>! ${w.payload || "Glad to have you here."}`;
+    // Same composition rule as the real bot: long or multi-line payloads get
+    // their own block instead of running on from the greeting.
+    const body = w.payload || "Glad to have you here.";
+    const text = (body.includes("\n") || body.length > 60)
+      ? `Welcome <@${person}>!\n\n${body}`
+      : `Welcome <@${person}>! ${body}`;
     if(w.action === "dm_user") await botSay(text, null, person);
     else await botSay(text);
   }

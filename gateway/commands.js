@@ -11,7 +11,13 @@ function parseId(text) {
 // Run whatever the workflow row says to do, instead of hardcoding a public
 // welcome. `action` is already normalized to one of ACTIONS by workflowEngine.
 async function executeWorkflowAction(client, workflow, event) {
-    const text = `Welcome <@${event.user}>! ${workflow.payload || "Glad to have you here."}`;
+    // A payload can be a one-liner ("the onboarding docs") or a whole handbook.
+    // Short ones read fine inline; long or multi-line ones need their own block
+    // so the greeting doesn't run straight into a wall of text.
+    const body = workflow.payload || "Glad to have you here.";
+    const text = (body.includes("\n") || body.length > 60)
+        ? `Welcome <@${event.user}>!\n\n${body}`
+        : `Welcome <@${event.user}>! ${body}`;
 
     if (workflow.action === ACTIONS.SEND_EPHEMERAL) {
         await client.chat.postEphemeral({ channel: event.channel, user: event.user, text });

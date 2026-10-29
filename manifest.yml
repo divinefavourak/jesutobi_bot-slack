@@ -1,41 +1,62 @@
-# Slack app manifest for SlackOS.
+# Slack app manifest for SlackOS, kept in sync with the live app.
 # Paste this into api.slack.com/apps → your app → App Manifest (YAML tab) and
-# save. It registers every slash command, scope and event in one go, so no
-# command can be missed by hand. Reinstall the app afterwards if Slack asks.
+# save. Every app.command() in gateway/commands.js needs an entry here, or
+# Slack rejects the command as "not a valid command" before the bot sees it.
 display_information:
-  name: SlackOS
-  description: An AI teammate that turns plain sentences into tasks, memory and automations.
+  name: SlackOs
+  description: An AI teammate that turns plain messages into tasks, memories and automations — no forms, no clicks.
+  long_description: |-
+    SlackOS is an AI-powered assistant that lives in your workspace and turns ordinary sentences into real actions.
+
+    *Just talk to it*
+    Type `/sos-ask remind Divine to finish the UI by Friday` and it creates the task. Ask `/sos-ask what did we decide about the logo?` and it answers from your team's own history. Say `/sos-ask when someone joins #design, DM them the handbook` and it builds the automation. No forms, no menus — it works out what you meant.
+
+    *What it does*
+    • *Tasks* — create them in plain English, list them with `/sos-tasks`, close them with `/sos-done`. Deadlines and assignees are picked out automatically.
+    • *Memory* — tell it what your team decided and it remembers. Ask later in normal language and it finds the relevant note and answers with that context.
+    • *Automations* — describe a rule once and it runs itself. When someone joins a channel, SlackOS can welcome them publicly, send a private note, or DM them the onboarding docs. Pause or delete any rule with `/sos-workflows`.
+    • *XP and games* — earn XP for real work, play `/sos-trivia`, and check `/sos-rank` and `/sos-leaderboard`.
+    • *Just mention it* — `@SlackOS what's our standup time?` works anywhere, and it replies in a thread so channels stay tidy.
+
+    *Also* — `/sos-joke`, `/sos-meow-fact` and `/sos-no` for when the sprint is going badly.
+
+    Run `/sos-help` at any time to see everything it can do.
+  background_color: "#2c2d30"
 features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: false
+    messages_tab_read_only_enabled: true
   bot_user:
-    display_name: SlackOS
+    display_name: SlackOs
     always_online: true
   slash_commands:
     - command: /sos-ask
       description: Talk to SlackOS in plain English
-      usage_hint: "[message]"
       should_escape: false
+      usage_hint: "[message]"
     - command: /sos-tasks
       description: List saved tasks with their ids
       should_escape: false
     - command: /sos-done
       description: Mark a task done
-      usage_hint: "[task id]"
       should_escape: false
+      usage_hint: "[task id]"
     - command: /sos-reopen
       description: Move a task back to pending
-      usage_hint: "[task id]"
       should_escape: false
+      usage_hint: "[task id]"
     - command: /sos-memories
-      description: List everything SlackOS remembers
+      description: List everything I've remembered
       should_escape: false
     - command: /sos-forget
       description: Delete a memory
-      usage_hint: "[memory id]"
       should_escape: false
+      usage_hint: "[memory id]"
     - command: /sos-workflows
       description: List automation rules, or manage one
-      usage_hint: "[enable|disable|delete] [id]"
       should_escape: false
+      usage_hint: "[enable|disable|delete] [id]"
     - command: /sos-help
       description: Show every command
       should_escape: false
@@ -43,64 +64,70 @@ features:
       description: Start a computing trivia question
       should_escape: false
     - command: /sos-answer
-      description: Answer the open trivia question
-      usage_hint: "[a, b, c or d]"
+      description: Answer the trivia question in this channel
       should_escape: false
+      usage_hint: a, b, c or d
     - command: /sos-rank
-      description: Your XP, level, streak and standing
+      description: See your XP, level, rank, streak and standing
       should_escape: false
     - command: /sos-leaderboard
-      description: Who's winning
+      description: See who has the most XP
       should_escape: false
     - command: /sos-shoutout
-      description: Give someone props and XP
-      usage_hint: "[@someone] for [reason]"
-      should_escape: true
+      description: Give someone props and 25 XP
+      should_escape: false
+      usage_hint: "@anybody for fixing the nav bug"
     - command: /sos-meme
-      description: A programming meme
+      description: Get a programming meme
       should_escape: false
     - command: /sos-roast
-      description: A playful roast
-      usage_hint: "[@someone]"
-      should_escape: true
-    - command: /sos-hype
-      description: Hype someone up
-      usage_hint: "[@someone]"
-      should_escape: true
-    - command: /sos-8ball
-      description: Ask the magic 8-ball
-      usage_hint: "[question]"
+      description: Get playfully roasted about your coding abilities
       should_escape: false
+      usage_hint: "@someone"
+    - command: /sos-hype
+      description: Hype someone up after they ship
+      should_escape: false
+      usage_hint: "@someone"
+    - command: /sos-8ball
+      description: Ask the magic 8-ball a yes or no question
+      should_escape: false
+      usage_hint: should i deploy friday night?
     - command: /sos-joke
-      description: A random joke
+      description: Tells a joke
       should_escape: false
     - command: /sos-meow-fact
       description: A random cat fact
       should_escape: false
     - command: /sos-no
-      description: A silly excuse
+      description: Gives a silly excuse
       should_escape: false
     - command: /sos-ping
-      description: Latency check
+      description: Shows ping speed
       should_escape: false
 oauth_config:
   scopes:
     bot:
+      - chat:write.customize
+      - app_mentions:read
+      - channels:history
+      - channels:read
       - chat:write
       - chat:write.public
       - commands
-      - channels:read
-      - channels:history
       - groups:read
-      - app_mentions:read
+      - mpim:read
       - im:write
+      - im:history
+  pkce_enabled: false
 settings:
   event_subscriptions:
     bot_events:
-      - member_joined_channel
       - app_mention
+      - member_joined_channel
   interactivity:
-    is_enabled: false
-  org_deploy_enabled: false
+    is_enabled: true
+  org_deploy_enabled: true
   socket_mode_enabled: true
+  is_mcp_enabled: false
   token_rotation_enabled: false
+  app_level_token_rotation_enabled: false

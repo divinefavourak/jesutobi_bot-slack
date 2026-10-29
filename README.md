@@ -182,7 +182,11 @@ Socket Mode means there is no public URL and no Request URL to configure.
    `channels:history`, `groups:read`, `app_mentions:read`, `im:write`
 3. **Event Subscriptions** → enable, then subscribe to bot events:
    `member_joined_channel` and `app_mention`
-4. **Slash Commands** → create each command from the table above.
+4. **Slash Commands** → create each command from the table above. Faster and
+   harder to get wrong: open **App Manifest**, paste in `manifest.yml` from this
+   repo and save — that registers all 21 commands, the scopes and the events at
+   once. A command missing here shows up in Slack as "not a valid command"
+   even though the code handles it.
 5. **Install to Workspace**, then copy the Bot User OAuth Token into
    `SLACK_BOT_TOKEN`.
 

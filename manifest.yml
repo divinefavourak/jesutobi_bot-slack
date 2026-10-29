@@ -1,0 +1,106 @@
+# Slack app manifest for SlackOS.
+# Paste this into api.slack.com/apps → your app → App Manifest (YAML tab) and
+# save. It registers every slash command, scope and event in one go, so no
+# command can be missed by hand. Reinstall the app afterwards if Slack asks.
+display_information:
+  name: SlackOS
+  description: An AI teammate that turns plain sentences into tasks, memory and automations.
+features:
+  bot_user:
+    display_name: SlackOS
+    always_online: true
+  slash_commands:
+    - command: /sos-ask
+      description: Talk to SlackOS in plain English
+      usage_hint: "[message]"
+      should_escape: false
+    - command: /sos-tasks
+      description: List saved tasks with their ids
+      should_escape: false
+    - command: /sos-done
+      description: Mark a task done
+      usage_hint: "[task id]"
+      should_escape: false
+    - command: /sos-reopen
+      description: Move a task back to pending
+      usage_hint: "[task id]"
+      should_escape: false
+    - command: /sos-memories
+      description: List everything SlackOS remembers
+      should_escape: false
+    - command: /sos-forget
+      description: Delete a memory
+      usage_hint: "[memory id]"
+      should_escape: false
+    - command: /sos-workflows
+      description: List automation rules, or manage one
+      usage_hint: "[enable|disable|delete] [id]"
+      should_escape: false
+    - command: /sos-help
+      description: Show every command
+      should_escape: false
+    - command: /sos-trivia
+      description: Start a computing trivia question
+      should_escape: false
+    - command: /sos-answer
+      description: Answer the open trivia question
+      usage_hint: "[a, b, c or d]"
+      should_escape: false
+    - command: /sos-rank
+      description: Your XP, level, streak and standing
+      should_escape: false
+    - command: /sos-leaderboard
+      description: Who's winning
+      should_escape: false
+    - command: /sos-shoutout
+      description: Give someone props and XP
+      usage_hint: "[@someone] for [reason]"
+      should_escape: true
+    - command: /sos-meme
+      description: A programming meme
+      should_escape: false
+    - command: /sos-roast
+      description: A playful roast
+      usage_hint: "[@someone]"
+      should_escape: true
+    - command: /sos-hype
+      description: Hype someone up
+      usage_hint: "[@someone]"
+      should_escape: true
+    - command: /sos-8ball
+      description: Ask the magic 8-ball
+      usage_hint: "[question]"
+      should_escape: false
+    - command: /sos-joke
+      description: A random joke
+      should_escape: false
+    - command: /sos-meow-fact
+      description: A random cat fact
+      should_escape: false
+    - command: /sos-no
+      description: A silly excuse
+      should_escape: false
+    - command: /sos-ping
+      description: Latency check
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - chat:write.public
+      - commands
+      - channels:read
+      - channels:history
+      - groups:read
+      - app_mentions:read
+      - im:write
+settings:
+  event_subscriptions:
+    bot_events:
+      - member_joined_channel
+      - app_mention
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
